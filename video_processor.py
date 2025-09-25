@@ -139,6 +139,8 @@ class VideoProcessor:
                 'ffmpeg', '-y',
                 '-i', str(input_path),
                 '-c:v', 'libx264',
+                '-preset', 'ultrafast',  # Быстрая обработка
+                '-crf', '23',  # Качество
                 '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                 str(output_path)
             ]
@@ -196,6 +198,8 @@ class VideoProcessor:
                     '-i', str(input_path),
                     '-vf', f'pad=iw+60:ih+60:30:30:{border_color}',
                     '-c:v', 'libx264',
+                    '-preset', 'ultrafast',  # Быстрая обработка
+                    '-crf', '23',  # Качество
                     '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                     str(output_path)
                 ]
@@ -208,7 +212,7 @@ class VideoProcessor:
                 env['TMPDIR'] = temp_path
                 env['TMP'] = temp_path
                 env['TEMP'] = temp_path
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=env)
                 
                 if result.returncode == 0:
                     print(f"✅ Рамка добавлена: {output_path}")
@@ -228,6 +232,8 @@ class VideoProcessor:
                         '-i', str(input_path),
                         '-vf', f'drawbox=x=0:y=0:w=iw:h=ih:color={border_color}:t=30',
                         '-c:v', 'libx264',
+                        '-preset', 'ultrafast',  # Быстрая обработка
+                        '-crf', '23',  # Качество
                         '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                         str(output_path)
                     ]
@@ -239,7 +245,7 @@ class VideoProcessor:
                     env['TMPDIR'] = temp_path
                     env['TMP'] = temp_path
                     env['TEMP'] = temp_path
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=env)
                     
                     if result.returncode == 0:
                         print(f"✅ Рамка добавлена (альтернативный способ): {output_path}")
@@ -257,9 +263,21 @@ class VideoProcessor:
             
         except Exception as e:
             print(f"❌ Общая ошибка при добавлении рамки: {e}")
+            print("🔄 Пробуем простое копирование файла...")
             # В случае ошибки просто копируем файл
-            shutil.copy2(input_path, output_path)
-            print(f"📁 Файл скопирован без рамки: {output_path}")
+            try:
+                shutil.copy2(input_path, output_path)
+                print(f"✅ Файл скопирован без рамки: {output_path}")
+            except Exception as copy_error:
+                print(f"❌ Ошибка при копировании: {copy_error}")
+                # Последняя попытка - простое копирование байтов
+                try:
+                    with open(input_path, 'rb') as src, open(output_path, 'wb') as dst:
+                        dst.write(src.read())
+                    print(f"✅ Файл скопирован байтами: {output_path}")
+                except Exception as final_error:
+                    print(f"❌ Критическая ошибка: {final_error}")
+                    raise
     
     async def _compress_video_ffmpeg(self, input_path: Path, output_path: Path):
         """Сжимает видео с помощью ffmpeg"""
@@ -279,7 +297,7 @@ class VideoProcessor:
                 '-i', str(input_path),
                 '-c:v', 'libx264',
                 '-crf', '28',  # качество сжатия (18-28, где 28 - больше сжатие)
-                '-preset', 'fast',
+                '-preset', 'ultrafast',  # Быстрая обработка
                 '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                 str(output_path)
             ]

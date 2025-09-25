@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 import asyncio
 from video_processor import VideoProcessor
+import httpx
 
 app = FastAPI(title="VideoBot App", description="Приложение для обработки видео")
 
@@ -37,6 +38,40 @@ def cleanup_temp_files():
 
 # Очищаем временные файлы при запуске
 cleanup_temp_files()
+
+# Функция для отправки уведомлений в Telegram
+async def send_telegram_notification(message: str, chat_id: str = None):
+    """Отправляет уведомление в Telegram"""
+    try:
+        from config import TELEGRAM_BOT_TOKEN
+        
+        if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+            print("⚠️ Telegram токен не настроен, уведомления отключены")
+            return
+        
+        # Если chat_id не указан, используем дефолтный (можно настроить в .env)
+        if not chat_id:
+            chat_id = os.getenv("TELEGRAM_CHAT_ID")
+            if not chat_id:
+                print("⚠️ TELEGRAM_CHAT_ID не настроен, уведомления отключены")
+                return
+        
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=data, timeout=10)
+            if response.status_code == 200:
+                print(f"✅ Уведомление отправлено в Telegram: {chat_id}")
+            else:
+                print(f"❌ Ошибка отправки в Telegram: {response.status_code}")
+                
+    except Exception as e:
+        print(f"❌ Ошибка при отправке уведомления в Telegram: {e}")
 
 # Подключаем статические файлы (если папка существует)
 if Path("static").exists():
@@ -161,6 +196,27 @@ async def upload_video(
         except Exception as e:
             print(f"Ошибка при удалении папки загрузки {session_dir}: {e}")
         
+        # Отправляем уведомление в Telegram
+        notification_message = f"""
+🎬 <b>Видео обработано!</b>
+
+📁 <b>Сессия:</b> {session_id}
+📊 <b>Создано файлов:</b> {len(result_files)}
+⚙️ <b>Параметры:</b>
+  • Копий: {copies}
+  • Рамки: {'Да' if add_frames_bool else 'Нет'}
+  • Сжатие: {'Да' if compression_bool else 'Нет'}
+
+🔗 <b>Ссылки для скачивания:</b>
+"""
+        
+        for i, file in enumerate(result_files, 1):
+            file_url = f"https://your-domain.com/download/{session_id}/{file.name}"
+            notification_message += f"  {i}. <a href='{file_url}'>Скачать файл {i}</a>\n"
+        
+        # Отправляем уведомление асинхронно
+        asyncio.create_task(send_telegram_notification(notification_message))
+        
         return {
             "session_id": session_id,
             "message": f"Видео успешно обработано. Создано {len(result_files)} файлов.",
@@ -171,6 +227,18 @@ async def upload_video(
         # Очищаем временные файлы в случае ошибки
         shutil.rmtree(session_dir, ignore_errors=True)
         shutil.rmtree(result_session_dir, ignore_errors=True)
+        
+        # Отправляем уведомление об ошибке
+        error_message = f"""
+❌ <b>Ошибка обработки видео!</b>
+
+📁 <b>Сессия:</b> {session_id}
+🚨 <b>Ошибка:</b> {str(e)}
+
+Попробуйте еще раз или обратитесь к администратору.
+"""
+        asyncio.create_task(send_telegram_notification(error_message))
+        
         raise HTTPException(status_code=500, detail=f"Ошибка обработки видео: {str(e)}")
 
 @app.get("/download/{session_id}/{filename}")

@@ -22,5 +22,6 @@ load_env_file()
 
 # Конфигурация
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")  # ID чата для уведомлений
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "52428800"))  # 50MB в байтах
