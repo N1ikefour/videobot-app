@@ -4,13 +4,23 @@
 """
 
 import os
+import sys
 import asyncio
 import logging
 from pathlib import Path
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from video_processor import VideoProcessor
-import shutil
+
+# Добавляем текущую директорию в путь для надежности
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+    from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+    from video_processor import VideoProcessor
+    import shutil
+except ImportError as e:
+    print(f"❌ Ошибка импорта: {e}")
+    print("🔍 Проверьте установку зависимостей")
+    sys.exit(1)
 
 # Настройка логирования
 logging.basicConfig(

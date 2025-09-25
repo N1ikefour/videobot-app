@@ -9,11 +9,14 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
 # Копируем код приложения
 COPY . .
 
 # Создаем необходимые директории
 RUN mkdir -p uploads results temp_downloads
 
-# Запускаем приложение
-CMD ["python", "main.py"]
+# Railway использует Procfile для запуска, поэтому не указываем CMD
+# CMD ["python", "main.py"]
