@@ -18,5 +18,8 @@ COPY . .
 # Создаем необходимые директории
 RUN mkdir -p uploads results temp_downloads
 
+# Устанавливаем переменную окружения PORT по умолчанию
+ENV PORT=8000
+
 # Railway использует Procfile для запуска, поэтому не указываем CMD
 # CMD ["python", "main.py"]
