@@ -139,8 +139,7 @@ class VideoProcessor:
                 'ffmpeg', '-y',
                 '-i', str(input_path),
                 '-c:v', 'libx264',
-                '-c:a', 'aac',
-                '-b:a', '128k',
+                '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                 str(output_path)
             ]
             
@@ -157,7 +156,9 @@ class VideoProcessor:
             if result.returncode == 0:
                 print(f"✅ Видео скопировано: {output_path}")
             else:
-                print(f"❌ Ошибка FFmpeg при копировании: {result.stderr}")
+                print(f"❌ Ошибка FFmpeg при копировании:")
+                print(f"   stdout: {result.stdout}")
+                print(f"   stderr: {result.stderr}")
                 raise Exception(f"FFmpeg copy error: {result.stderr}")
                 
         except Exception as e:
@@ -179,10 +180,8 @@ class VideoProcessor:
         """Синхронная версия добавления рамок"""
         try:
             # Генерируем случайный цвет для рамки
-            colors = [
-                'red', 'green', 'blue', 'yellow', 'purple', 'orange', 
-                'pink', 'cyan', 'magenta', 'lime', 'navy', 'maroon'
-            ]
+            # Используем только базовые цвета, которые точно поддерживаются
+            colors = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'pink', 'cyan', 'magenta', 'lime']
             border_color = random.choice(colors)
             
             print(f"Добавляем рамку цвета {border_color} для копии {copy_num}")
@@ -191,14 +190,13 @@ class VideoProcessor:
             
             # Пробуем добавить рамку с улучшенной обработкой ошибок
             try:
-                # Создаем простую команду FFmpeg
+                # Создаем простую команду FFmpeg для добавления рамки
                 cmd = [
                     'ffmpeg', '-y',  # -y для перезаписи файла
                     '-i', str(input_path),
                     '-vf', f'pad=iw+60:ih+60:30:30:{border_color}',
                     '-c:v', 'libx264',
-                    '-c:a', 'aac',
-                    '-b:a', '128k',
+                    '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                     str(output_path)
                 ]
                 
@@ -215,7 +213,9 @@ class VideoProcessor:
                 if result.returncode == 0:
                     print(f"✅ Рамка добавлена: {output_path}")
                 else:
-                    print(f"❌ Ошибка FFmpeg: {result.stderr}")
+                    print(f"❌ Ошибка FFmpeg:")
+                    print(f"   stdout: {result.stdout}")
+                    print(f"   stderr: {result.stderr}")
                     raise Exception(f"FFmpeg error: {result.stderr}")
                     
             except Exception as pad_error:
@@ -228,8 +228,7 @@ class VideoProcessor:
                         '-i', str(input_path),
                         '-vf', f'drawbox=x=0:y=0:w=iw:h=ih:color={border_color}:t=30',
                         '-c:v', 'libx264',
-                        '-c:a', 'aac',
-                        '-b:a', '128k',
+                        '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                         str(output_path)
                     ]
                     
@@ -245,7 +244,9 @@ class VideoProcessor:
                     if result.returncode == 0:
                         print(f"✅ Рамка добавлена (альтернативный способ): {output_path}")
                     else:
-                        print(f"❌ Альтернативная команда тоже не сработала: {result.stderr}")
+                        print(f"❌ Альтернативная команда тоже не сработала:")
+                        print(f"   stdout: {result.stdout}")
+                        print(f"   stderr: {result.stderr}")
                         raise Exception(f"Alternative FFmpeg error: {result.stderr}")
                         
                 except Exception as alt_error:
@@ -279,8 +280,7 @@ class VideoProcessor:
                 '-c:v', 'libx264',
                 '-crf', '28',  # качество сжатия (18-28, где 28 - больше сжатие)
                 '-preset', 'fast',
-                '-c:a', 'aac',
-                '-b:a', '128k',
+                '-c:a', 'copy',  # Просто копируем аудио без перекодирования
                 str(output_path)
             ]
             
@@ -297,7 +297,9 @@ class VideoProcessor:
             if result.returncode == 0:
                 print(f"✅ Видео сжато: {output_path}")
             else:
-                print(f"❌ Ошибка FFmpeg при сжатии: {result.stderr}")
+                print(f"❌ Ошибка FFmpeg при сжатии:")
+                print(f"   stdout: {result.stdout}")
+                print(f"   stderr: {result.stderr}")
                 raise Exception(f"FFmpeg compression error: {result.stderr}")
                 
         except Exception as e:
