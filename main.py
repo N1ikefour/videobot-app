@@ -11,6 +11,7 @@ import asyncio
 from video_processor import VideoProcessor
 import httpx
 import json
+import threading
 
 app = FastAPI(title="VideoBot App", description="Приложение для обработки видео")
 
@@ -39,6 +40,25 @@ def cleanup_temp_files():
 
 # Очищаем временные файлы при запуске
 cleanup_temp_files()
+
+# Функция для запуска Telegram бота в отдельном потоке
+def start_telegram_bot():
+    """Запускает Telegram бота в отдельном потоке"""
+    try:
+        from telegram_bot import main as bot_main
+        print("🤖 Запускаем Telegram бота в фоновом режиме...")
+        bot_main()
+    except Exception as e:
+        print(f"❌ Ошибка запуска бота: {e}")
+
+# Запускаем бота в фоновом потоке при старте приложения
+bot_thread = None
+if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_BOT_TOKEN") != "YOUR_BOT_TOKEN_HERE":
+    bot_thread = threading.Thread(target=start_telegram_bot, daemon=True)
+    bot_thread.start()
+    print("✅ Telegram бот запущен в фоновом режиме")
+else:
+    print("⚠️ TELEGRAM_BOT_TOKEN не найден, бот не запущен")
 
 # Система привязки пользователей к сессиям
 USER_SESSIONS_FILE = Path("user_sessions.json")
