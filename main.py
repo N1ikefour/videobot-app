@@ -45,17 +45,12 @@ cleanup_temp_files()
 def start_telegram_bot():
     """Запускает Telegram бота в отдельном потоке"""
     try:
-        import asyncio
         from telegram_bot import main as bot_main
         
         print("🤖 Запускаем Telegram бота в фоновом режиме...")
         
-        # Создаем новый event loop для этого потока
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Запускаем бота в новом event loop
-        loop.run_until_complete(bot_main())
+        # Запускаем бота напрямую
+        bot_main()
         
     except Exception as e:
         print(f"❌ Ошибка запуска бота: {e}")
