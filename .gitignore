@@ -39,6 +39,7 @@ Thumbs.db
 uploads/
 results/
 temp_downloads/
+temp_processing/
 *.mp4
 *.avi
 *.mov

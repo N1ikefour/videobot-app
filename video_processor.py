@@ -21,6 +21,15 @@ class VideoProcessor:
     
     def __init__(self):
         self.supported_formats = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv']
+        
+        # Создаем локальную папку для временных файлов
+        self.temp_dir = Path("temp_processing")
+        self.temp_dir.mkdir(exist_ok=True)
+        
+        # Настраиваем переменные окружения для FFmpeg
+        os.environ['TMPDIR'] = str(self.temp_dir)
+        os.environ['TMP'] = str(self.temp_dir) 
+        os.environ['TEMP'] = str(self.temp_dir)
     
     async def process_video(
         self,

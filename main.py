@@ -24,14 +24,17 @@ TEMP_DIR.mkdir(exist_ok=True)
 # Очищаем старые временные файлы при запуске
 def cleanup_temp_files():
     """Очищает старые временные файлы"""
-    try:
-        if TEMP_DIR.exists():
-            for temp_file in TEMP_DIR.iterdir():
-                if temp_file.is_file():
-                    temp_file.unlink()
-                    print(f"Удален старый временный файл: {temp_file}")
-    except Exception as e:
-        print(f"Ошибка при очистке временных файлов: {e}")
+    temp_dirs = [TEMP_DIR, Path("temp_processing")]
+    
+    for temp_dir in temp_dirs:
+        try:
+            if temp_dir.exists():
+                for temp_file in temp_dir.iterdir():
+                    if temp_file.is_file():
+                        temp_file.unlink()
+                        print(f"Удален старый временный файл: {temp_file}")
+        except Exception as e:
+            print(f"Ошибка при очистке временных файлов из {temp_dir}: {e}")
 
 # Очищаем временные файлы при запуске
 cleanup_temp_files()
