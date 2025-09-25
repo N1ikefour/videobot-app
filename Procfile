@@ -1,2 +1,1 @@
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
-bot: python bot_only.py
+web: python start_all_services.py

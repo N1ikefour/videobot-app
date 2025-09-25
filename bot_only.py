@@ -5,6 +5,12 @@
 
 import os
 import asyncio
+import sys
+from pathlib import Path
+
+# Добавляем текущую директорию в путь
+sys.path.insert(0, str(Path(__file__).parent))
+
 from telegram_bot import main_async
 
 async def main():
@@ -16,6 +22,7 @@ async def main():
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not bot_token or bot_token == "YOUR_BOT_TOKEN_HERE":
         print("❌ TELEGRAM_BOT_TOKEN не найден!")
+        print("🔧 Проверьте переменные окружения в Railway Dashboard")
         return
     
     print(f"✅ Токен найден: {bot_token[:10]}...{bot_token[-5:]}")
@@ -26,6 +33,8 @@ async def main():
         print("🛑 Бот остановлен")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(main())
