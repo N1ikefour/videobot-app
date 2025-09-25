@@ -33,6 +33,8 @@ class VideoBot:
         user_id = str(update.effective_user.id)
         username = update.effective_user.username or "Пользователь"
         
+        print(f"📱 Получена команда /start от пользователя {username} (ID: {user_id})")
+        
         welcome_text = f"""
 🎬 Добро пожаловать в VideoBot, {username}!
 
@@ -345,10 +347,12 @@ class VideoBot:
 def main():
     """Запуск бота"""
     print("🚀 Запускаем Telegram бота...")
+    print(f"🌍 Окружение: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') else 'Local'}")
     
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE" or not BOT_TOKEN:
         print("❌ Установите TELEGRAM_BOT_TOKEN в переменных окружения!")
         print("📝 Создайте файл .env с содержимым: TELEGRAM_BOT_TOKEN=ваш_токен_здесь")
+        print("🔧 Или установите переменную в Railway Dashboard")
         return
     
     try:
@@ -364,9 +368,13 @@ def main():
         
         print("🤖 Telegram бот запущен!")
         print("📱 Отправьте /start боту для начала работы")
+        print("🔍 Логи бота будут отображаться здесь...")
         
         # Запускаем бота
-        application.run_polling()
+        application.run_polling(
+            drop_pending_updates=True,  # Игнорируем старые сообщения
+            allowed_updates=["message", "callback_query"]  # Только нужные типы обновлений
+        )
         
     except Exception as e:
         print(f"❌ Ошибка при запуске бота: {e}")
