@@ -135,9 +135,9 @@ async def send_telegram_notification(message: str, chat_id: str = None):
 async def send_video_files_to_telegram(result_files, session_id, copies, add_frames, compression):
     """Отправляет видео файлы напрямую в Telegram"""
     try:
-        from config import TELEGRAM_BOT_TOKEN
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
         
-        if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+        if not telegram_token or telegram_token == "YOUR_BOT_TOKEN_HERE":
             print("⚠️ Telegram токен не настроен, файлы не отправляются")
             return
         
@@ -176,7 +176,7 @@ async def send_video_files_to_telegram(result_files, session_id, copies, add_fra
                     video_data = video_file.read()
                 
                 # Отправляем видео через Telegram Bot API
-                url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo"
+                url = f"https://api.telegram.org/bot{telegram_token}/sendVideo"
                 
                 files = {
                     'video': (file_path.name, video_data, 'video/mp4')

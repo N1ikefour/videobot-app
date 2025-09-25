@@ -5,17 +5,15 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from video_processor import VideoProcessor
 import shutil
-from config import TELEGRAM_BOT_TOKEN
-
-# Токен бота
-BOT_TOKEN = TELEGRAM_BOT_TOKEN
+# Токен бота из переменных окружения
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # Отладочная информация
 print(f"🔑 Токен бота загружен: {'✅' if BOT_TOKEN and BOT_TOKEN != 'YOUR_BOT_TOKEN_HERE' else '❌'}")
 if BOT_TOKEN and BOT_TOKEN != 'YOUR_BOT_TOKEN_HERE':
     print(f"🔑 Токен: {BOT_TOKEN[:10]}...{BOT_TOKEN[-5:]}")
 else:
-    print("❌ Токен не найден! Проверьте .env файл")
+    print("❌ Токен не найден! Проверьте переменные окружения в Railway")
 
 class VideoBot:
     def __init__(self):
@@ -371,10 +369,15 @@ async def main_async():
         print("🔍 Логи бота будут отображаться здесь...")
         
         # Запускаем бота
-        await application.run_polling(
-            drop_pending_updates=True,  # Игнорируем старые сообщения
-            allowed_updates=["message", "callback_query"]  # Только нужные типы обновлений
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling(
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query"]
         )
+        
+        # Ждем завершения
+        await application.updater.idle()
         
     except Exception as e:
         print(f"❌ Ошибка при запуске бота: {e}")
