@@ -344,8 +344,8 @@ class VideoBot:
             
             self.processing_users.discard(user_id)
 
-def main():
-    """Запуск бота"""
+async def main_async():
+    """Асинхронный запуск бота"""
     print("🚀 Запускаем Telegram бота...")
     print(f"🌍 Окружение: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') else 'Local'}")
     
@@ -371,7 +371,7 @@ def main():
         print("🔍 Логи бота будут отображаться здесь...")
         
         # Запускаем бота
-        application.run_polling(
+        await application.run_polling(
             drop_pending_updates=True,  # Игнорируем старые сообщения
             allowed_updates=["message", "callback_query"]  # Только нужные типы обновлений
         )
@@ -379,6 +379,11 @@ def main():
     except Exception as e:
         print(f"❌ Ошибка при запуске бота: {e}")
         print("🔍 Проверьте правильность токена и интернет-соединение")
+
+def main():
+    """Синхронная обертка для запуска бота"""
+    import asyncio
+    asyncio.run(main_async())
 
 if __name__ == "__main__":
     main()
