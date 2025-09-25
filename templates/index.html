@@ -288,6 +288,45 @@
 
       <form id="videoForm" enctype="multipart/form-data">
         <div class="form-group">
+          <label for="userId">Ваш Telegram User ID</label>
+          <input
+            type="text"
+            id="userId"
+            name="user_id"
+            placeholder="Введите ваш Telegram User ID"
+            required
+            style="
+              width: 100%;
+              padding: 12px;
+              border: 2px solid #e0e0e0;
+              border-radius: 8px;
+              font-size: 16px;
+            "
+          />
+          <small style="color: #666; font-size: 0.9em">
+            Получите ID у бота @userinfobot в Telegram или используйте команду
+            /myid
+          </small>
+          <div style="margin-top: 10px">
+            <button
+              type="button"
+              onclick="showIdInstructions()"
+              style="
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 14px;
+              "
+            >
+              📱 Как получить ID?
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label for="videoFile">Выберите видео файл (до 50MB)</label>
           <div class="file-upload">
             <input
@@ -499,7 +538,14 @@
           return;
         }
 
+        const userId = document.getElementById("userId").value;
+        if (!userId) {
+          showError("Пожалуйста, введите ваш Telegram User ID");
+          return;
+        }
+
         formData.append("file", file);
+        formData.append("user_id", userId);
         formData.append("copies", copiesSlider.value);
 
         const compressionElement = document.getElementById("compression");
@@ -568,6 +614,18 @@
       function hideLoading() {
         loading.style.display = "none";
         submitBtn.disabled = false;
+      }
+
+      function showIdInstructions() {
+        alert(`📱 Как получить ваш Telegram User ID:
+
+1. Откройте Telegram
+2. Найдите бота @userinfobot
+3. Отправьте ему любое сообщение
+4. Бот пришлет ваш ID
+5. Скопируйте ID и вставьте в поле выше
+
+Или используйте команду /myid в нашем боте!`);
       }
 
       function showError(message) {

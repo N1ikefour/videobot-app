@@ -52,6 +52,9 @@ temp_processing/
 
 # Environment variables
 .env
+
+# User sessions
+user_sessions.json
 .env.local
 .env.production
 .env.example

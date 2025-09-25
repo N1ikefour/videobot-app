@@ -10,6 +10,7 @@ from pathlib import Path
 import asyncio
 from video_processor import VideoProcessor
 import httpx
+import json
 
 app = FastAPI(title="VideoBot App", description="Приложение для обработки видео")
 
@@ -38,6 +39,39 @@ def cleanup_temp_files():
 
 # Очищаем временные файлы при запуске
 cleanup_temp_files()
+
+# Система привязки пользователей к сессиям
+USER_SESSIONS_FILE = Path("user_sessions.json")
+
+def load_user_sessions():
+    """Загружает связи пользователей с сессиями"""
+    if USER_SESSIONS_FILE.exists():
+        try:
+            with open(USER_SESSIONS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Ошибка загрузки сессий пользователей: {e}")
+    return {}
+
+def save_user_sessions(sessions):
+    """Сохраняет связи пользователей с сессиями"""
+    try:
+        with open(USER_SESSIONS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(sessions, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Ошибка сохранения сессий пользователей: {e}")
+
+def link_user_to_session(user_id: str, session_id: str):
+    """Привязывает пользователя к сессии"""
+    sessions = load_user_sessions()
+    sessions[session_id] = user_id
+    save_user_sessions(sessions)
+    print(f"🔗 Пользователь {user_id} привязан к сессии {session_id}")
+
+def get_user_for_session(session_id: str) -> str:
+    """Получает пользователя для сессии"""
+    sessions = load_user_sessions()
+    return sessions.get(session_id, None)
 
 # Функция для отправки уведомлений в Telegram
 async def send_telegram_notification(message: str, chat_id: str = None):
@@ -73,6 +107,84 @@ async def send_telegram_notification(message: str, chat_id: str = None):
     except Exception as e:
         print(f"❌ Ошибка при отправке уведомления в Telegram: {e}")
 
+# Функция для отправки видео файлов в Telegram
+async def send_video_files_to_telegram(result_files, session_id, copies, add_frames, compression):
+    """Отправляет видео файлы напрямую в Telegram"""
+    try:
+        from config import TELEGRAM_BOT_TOKEN
+        
+        if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+            print("⚠️ Telegram токен не настроен, файлы не отправляются")
+            return
+        
+        # Получаем пользователя по сессии
+        user_id = get_user_for_session(session_id)
+        if not user_id:
+            print(f"⚠️ Пользователь для сессии {session_id} не найден, файлы не отправляются")
+            return
+        
+        print(f"📤 Отправляем файлы пользователю {user_id} для сессии {session_id}")
+        
+        # Отправляем сообщение о начале отправки
+        start_message = f"""
+🎬 <b>Видео обработано!</b>
+
+📁 <b>Сессия:</b> {session_id}
+📊 <b>Создано файлов:</b> {len(result_files)}
+⚙️ <b>Параметры:</b>
+  • Копий: {copies}
+  • Рамки: {'Да' if add_frames else 'Нет'}
+  • Сжатие: {'Да' if compression else 'Нет'}
+
+📤 <b>Отправляю файлы...</b>
+"""
+        
+        # Отправляем начальное сообщение
+        await send_telegram_notification(start_message, user_id)
+        
+        # Отправляем каждый видео файл
+        for i, file_path in enumerate(result_files, 1):
+            try:
+                print(f"📤 Отправляем файл {i}: {file_path}")
+                
+                # Читаем файл
+                with open(file_path, 'rb') as video_file:
+                    video_data = video_file.read()
+                
+                # Отправляем видео через Telegram Bot API
+                url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo"
+                
+                files = {
+                    'video': (file_path.name, video_data, 'video/mp4')
+                }
+                
+                data = {
+                    'chat_id': user_id,
+                    'caption': f"📹 Обработанное видео #{i}\n"
+                              f"Копий: {copies}\n"
+                              f"Рамки: {'Да' if add_frames else 'Нет'}\n"
+                              f"Сжатие: {'Да' if compression else 'Нет'}"
+                }
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, files=files, data=data, timeout=300)
+                    
+                    if response.status_code == 200:
+                        print(f"✅ Файл {i} отправлен успешно")
+                    else:
+                        print(f"❌ Ошибка отправки файла {i}: {response.status_code}")
+                        print(f"Ответ: {response.text}")
+                        
+            except Exception as file_error:
+                print(f"❌ Ошибка при отправке файла {i}: {file_error}")
+        
+        # Отправляем сообщение о завершении
+        completion_message = f"✅ <b>Все файлы отправлены!</b>\n\n📁 Сессия: {session_id}\n📊 Отправлено: {len(result_files)} файлов"
+        await send_telegram_notification(completion_message, user_id)
+        
+    except Exception as e:
+        print(f"❌ Ошибка при отправке видео файлов в Telegram: {e}")
+
 # Подключаем статические файлы (если папка существует)
 if Path("static").exists():
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -96,6 +208,17 @@ async def read_root():
                 "Expires": "0"
             }
         )
+
+@app.post("/link-user")
+async def link_user(user_id: str = Form(...)):
+    """Привязывает пользователя к новой сессии"""
+    session_id = str(uuid.uuid4())
+    link_user_to_session(user_id, session_id)
+    
+    return {
+        "session_id": session_id,
+        "message": f"Пользователь {user_id} привязан к сессии {session_id}"
+    }
 
 @app.post("/test-params")
 async def test_params(
@@ -128,6 +251,7 @@ async def test_params(
 @app.post("/upload")
 async def upload_video(
     file: UploadFile = File(...),
+    user_id: str = Form(...),
     copies: int = Form(1),
     compression: str = Form("false"),
     add_frames: str = Form("false")
@@ -160,6 +284,9 @@ async def upload_video(
     session_id = str(uuid.uuid4())
     session_dir = UPLOAD_DIR / session_id
     session_dir.mkdir(exist_ok=True)
+    
+    # Привязываем пользователя к сессии
+    link_user_to_session(user_id, session_id)
     
     # Сохраняем оригинальный файл
     original_path = session_dir / f"original_{file.filename}"
@@ -196,26 +323,8 @@ async def upload_video(
         except Exception as e:
             print(f"Ошибка при удалении папки загрузки {session_dir}: {e}")
         
-        # Отправляем уведомление в Telegram
-        notification_message = f"""
-🎬 <b>Видео обработано!</b>
-
-📁 <b>Сессия:</b> {session_id}
-📊 <b>Создано файлов:</b> {len(result_files)}
-⚙️ <b>Параметры:</b>
-  • Копий: {copies}
-  • Рамки: {'Да' if add_frames_bool else 'Нет'}
-  • Сжатие: {'Да' if compression_bool else 'Нет'}
-
-🔗 <b>Ссылки для скачивания:</b>
-"""
-        
-        for i, file in enumerate(result_files, 1):
-            file_url = f"https://your-domain.com/download/{session_id}/{file.name}"
-            notification_message += f"  {i}. <a href='{file_url}'>Скачать файл {i}</a>\n"
-        
-        # Отправляем уведомление асинхронно
-        asyncio.create_task(send_telegram_notification(notification_message))
+        # Отправляем видео файлы напрямую в Telegram конкретному пользователю
+        asyncio.create_task(send_video_files_to_telegram(result_files, session_id, copies, add_frames_bool, compression_bool))
         
         return {
             "session_id": session_id,

@@ -30,21 +30,73 @@ class VideoBot:
         
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик команды /start"""
-        welcome_text = """
-🎬 Добро пожаловать в VideoBot!
+        user_id = str(update.effective_user.id)
+        username = update.effective_user.username or "Пользователь"
+        
+        welcome_text = f"""
+🎬 Добро пожаловать в VideoBot, {username}!
 
 Я могу обрабатывать ваши видео:
 • Создавать до 3 копий
 • Добавлять цветные рамки
 • Сжимать видео для уменьшения размера
 
-Просто отправьте мне видео файл (до 50MB) и я обработаю его!
+📱 **Ваш User ID для веб-приложения:**
+        """
+        
+        # Создаем кнопку с User ID для копирования
+        keyboard = [
+            [InlineKeyboardButton(f"📋 Скопировать ID: {user_id}", callback_data=f"copy_id_{user_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            welcome_text,
+            reply_markup=reply_markup
+        )
+        
+        # Отправляем дополнительную инструкцию
+        instruction_text = f"""
+🔗 **Как использовать:**
+
+1. **Скопируйте ваш ID** (кнопка выше)
+2. **Откройте веб-приложение** по ссылке
+3. **Вставьте ID** в поле "Telegram User ID"
+4. **Загрузите видео** и настройте параметры
+5. **Получите готовые файлы** прямо в этот чат!
+
+💡 **Ваш ID:** `{user_id}`
 
 Команды:
 /start - Начать работу
 /help - Помощь
+/myid - Показать мой ID
         """
-        await update.message.reply_text(welcome_text)
+        
+        await update.message.reply_text(instruction_text)
+    
+    async def myid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик команды /myid"""
+        user_id = str(update.effective_user.id)
+        username = update.effective_user.username or "Пользователь"
+        
+        text = f"""
+👤 **Информация о пользователе:**
+
+🆔 **User ID:** `{user_id}`
+👤 **Имя:** {username}
+📱 **Имя пользователя:** @{update.effective_user.username or 'не указано'}
+
+💡 **Скопируйте ваш ID** и вставьте в веб-приложение!
+        """
+        
+        # Создаем кнопку с User ID для копирования
+        keyboard = [
+            [InlineKeyboardButton(f"📋 Скопировать ID: {user_id}", callback_data=f"copy_id_{user_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(text, reply_markup=reply_markup)
     
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик команды /help"""
@@ -64,6 +116,20 @@ class VideoBot:
 • Видео автоматически удаляются после отправки
         """
         await update.message.reply_text(help_text)
+    
+    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик нажатий на кнопки"""
+        query = update.callback_query
+        await query.answer()
+        
+        if query.data.startswith("copy_id_"):
+            user_id = query.data.replace("copy_id_", "")
+            await query.edit_message_text(
+                f"✅ **ID скопирован!**\n\n"
+                f"🆔 Ваш User ID: `{user_id}`\n\n"
+                f"💡 Теперь вставьте этот ID в веб-приложение!",
+                parse_mode='Markdown'
+            )
     
     async def handle_video(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик видео файлов"""
@@ -292,8 +358,9 @@ def main():
         # Добавляем обработчики
         application.add_handler(CommandHandler("start", bot.start))
         application.add_handler(CommandHandler("help", bot.help))
+        application.add_handler(CommandHandler("myid", bot.myid))
         application.add_handler(MessageHandler(filters.VIDEO, bot.handle_video))
-        application.add_handler(CallbackQueryHandler(bot.handle_callback))
+        application.add_handler(CallbackQueryHandler(bot.button_callback))
         
         print("🤖 Telegram бот запущен!")
         print("📱 Отправьте /start боту для начала работы")
