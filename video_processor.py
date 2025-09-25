@@ -2,7 +2,6 @@ import asyncio
 import subprocess
 from pathlib import Path
 from typing import List
-import tempfile
 import os
 import shutil
 import random
@@ -27,9 +26,39 @@ class VideoProcessor:
         self.temp_dir.mkdir(exist_ok=True)
         
         # Настраиваем переменные окружения для FFmpeg
-        os.environ['TMPDIR'] = str(self.temp_dir)
-        os.environ['TMP'] = str(self.temp_dir) 
-        os.environ['TEMP'] = str(self.temp_dir)
+        temp_path = str(self.temp_dir.absolute())
+        os.environ['TMPDIR'] = temp_path
+        os.environ['TMP'] = temp_path
+        os.environ['TEMP'] = temp_path
+        os.environ['TMPDIR'] = temp_path  # Дублируем для надежности
+        
+        # Дополнительные переменные для Windows
+        os.environ['TMPDIR'] = temp_path
+        os.environ['TMP'] = temp_path
+        os.environ['TEMP'] = temp_path
+        
+        print(f"🔧 Настроены переменные окружения: TMPDIR={temp_path}")
+        
+        # Проверяем доступность FFmpeg (отключено для предотвращения создания временных файлов)
+        # self._check_ffmpeg()
+    
+    def _check_ffmpeg(self):
+        """Проверяет доступность FFmpeg в системе"""
+        try:
+            # Создаем временные переменные окружения для проверки
+            env = os.environ.copy()
+            env['TMPDIR'] = str(self.temp_dir)
+            env['TMP'] = str(self.temp_dir)
+            env['TEMP'] = str(self.temp_dir)
+            
+            result = subprocess.run(['ffmpeg', '-version'], 
+                                  capture_output=True, text=True, timeout=10, env=env)
+            if result.returncode == 0:
+                print("✅ FFmpeg доступен в системе")
+            else:
+                print("❌ FFmpeg не найден в системе")
+        except Exception as e:
+            print(f"❌ Ошибка при проверке FFmpeg: {e}")
     
     async def process_video(
         self,
@@ -105,21 +134,37 @@ class VideoProcessor:
     def _copy_video_ffmpeg_sync(self, input_path: Path, output_path: Path):
         """Синхронная версия копирования видео"""
         try:
-            (
-                ffmpeg
-                .input(str(input_path))
-                .output(str(output_path), 
-                       vcodec='libx264', 
-                       acodec='aac', 
-                       audio_bitrate='128k',
-                       map='0:a')
-                .overwrite_output()
-                .run(quiet=True)
-            )
-            print(f"Видео скопировано: {output_path}")
+            # Создаем простую команду FFmpeg для копирования
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', str(input_path),
+                '-c:v', 'libx264',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                str(output_path)
+            ]
+            
+            print(f"Выполняем копирование: {' '.join(cmd)}")
+            
+            # Выполняем команду с нашими переменными окружения
+            env = os.environ.copy()
+            temp_path = str(self.temp_dir.absolute())
+            env['TMPDIR'] = temp_path
+            env['TMP'] = temp_path
+            env['TEMP'] = temp_path
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+            
+            if result.returncode == 0:
+                print(f"✅ Видео скопировано: {output_path}")
+            else:
+                print(f"❌ Ошибка FFmpeg при копировании: {result.stderr}")
+                raise Exception(f"FFmpeg copy error: {result.stderr}")
+                
         except Exception as e:
-            print(f"Ошибка ffmpeg при копировании: {e}")
+            print(f"❌ Ошибка при копировании: {e}")
+            # В случае ошибки просто копируем файл
             shutil.copy2(input_path, output_path)
+            print(f"📁 Файл скопирован через shutil: {output_path}")
     
     async def _add_frames_ffmpeg(self, input_path: Path, output_path: Path, copy_num: int):
         """Добавляет рамки с помощью ffmpeg"""
@@ -144,54 +189,65 @@ class VideoProcessor:
             print(f"Входной файл: {input_path}")
             print(f"Выходной файл: {output_path}")
             
-            # Сначала пробуем простую рамку без текста
+            # Пробуем добавить рамку с улучшенной обработкой ошибок
             try:
-                (
-                    ffmpeg
-                    .input(str(input_path))
-                    .filter('pad', 
-                           w='iw+60',  # ширина + 60px (30px с каждой стороны)
-                           h='ih+60',  # высота + 60px (30px сверху и снизу)
-                           color=border_color,
-                           x=30,       # отступ слева
-                           y=30        # отступ сверху
-                    )
-                    .output(str(output_path), 
-                           vcodec='libx264', 
-                           acodec='aac', 
-                           audio_bitrate='128k',
-                           map='0:a')  # Явно копируем аудио поток
-                    .overwrite_output()
-                    .run(quiet=False)  # Включаем вывод для отладки
-                )
-                print(f"✅ Рамка добавлена: {output_path}")
+                # Создаем простую команду FFmpeg
+                cmd = [
+                    'ffmpeg', '-y',  # -y для перезаписи файла
+                    '-i', str(input_path),
+                    '-vf', f'pad=iw+60:ih+60:30:30:{border_color}',
+                    '-c:v', 'libx264',
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    str(output_path)
+                ]
                 
+                print(f"Выполняем команду: {' '.join(cmd)}")
+                
+                # Выполняем команду с нашими переменными окружения
+                env = os.environ.copy()
+                temp_path = str(self.temp_dir.absolute())
+                env['TMPDIR'] = temp_path
+                env['TMP'] = temp_path
+                env['TEMP'] = temp_path
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+                
+                if result.returncode == 0:
+                    print(f"✅ Рамка добавлена: {output_path}")
+                else:
+                    print(f"❌ Ошибка FFmpeg: {result.stderr}")
+                    raise Exception(f"FFmpeg error: {result.stderr}")
+                    
             except Exception as pad_error:
                 print(f"❌ Ошибка при добавлении рамки: {pad_error}")
                 
-                # Пробуем альтернативный способ - через scale и pad
+                # Пробуем альтернативный способ - через drawbox
                 try:
-                    (
-                        ffmpeg
-                        .input(str(input_path))
-                        .filter('scale', w='iw', h='ih')
-                        .filter('pad', 
-                               w='iw+60',
-                               h='ih+60', 
-                               color=border_color,
-                               x=30,
-                               y=30
-                        )
-                        .output(str(output_path), 
-                               vcodec='libx264', 
-                               acodec='aac', 
-                               audio_bitrate='128k',
-                               map='0:a')
-                        .overwrite_output()
-                        .run(quiet=False)
-                    )
-                    print(f"✅ Рамка добавлена (альтернативный способ): {output_path}")
+                    cmd = [
+                        'ffmpeg', '-y',
+                        '-i', str(input_path),
+                        '-vf', f'drawbox=x=0:y=0:w=iw:h=ih:color={border_color}:t=30',
+                        '-c:v', 'libx264',
+                        '-c:a', 'aac',
+                        '-b:a', '128k',
+                        str(output_path)
+                    ]
                     
+                    print(f"Пробуем альтернативную команду: {' '.join(cmd)}")
+                    
+                    env = os.environ.copy()
+                    temp_path = str(self.temp_dir.absolute())
+                    env['TMPDIR'] = temp_path
+                    env['TMP'] = temp_path
+                    env['TEMP'] = temp_path
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+                    
+                    if result.returncode == 0:
+                        print(f"✅ Рамка добавлена (альтернативный способ): {output_path}")
+                    else:
+                        print(f"❌ Альтернативная команда тоже не сработала: {result.stderr}")
+                        raise Exception(f"Alternative FFmpeg error: {result.stderr}")
+                        
                 except Exception as alt_error:
                     print(f"❌ Альтернативный способ тоже не сработал: {alt_error}")
                     # В случае ошибки просто копируем файл
@@ -216,20 +272,36 @@ class VideoProcessor:
     def _compress_video_ffmpeg_sync(self, input_path: Path, output_path: Path):
         """Синхронная версия сжатия видео"""
         try:
-            (
-                ffmpeg
-                .input(str(input_path))
-                .output(str(output_path), 
-                       vcodec='libx264',
-                       crf=28,  # качество сжатия (18-28, где 28 - больше сжатие)
-                       preset='fast',
-                       acodec='aac',
-                       audio_bitrate='128k'
-                )
-                .overwrite_output()
-                .run(quiet=True)
-            )
-            print(f"Видео сжато: {output_path}")
+            # Создаем простую команду FFmpeg для сжатия
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', str(input_path),
+                '-c:v', 'libx264',
+                '-crf', '28',  # качество сжатия (18-28, где 28 - больше сжатие)
+                '-preset', 'fast',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                str(output_path)
+            ]
+            
+            print(f"Выполняем сжатие: {' '.join(cmd)}")
+            
+            # Выполняем команду с нашими переменными окружения
+            env = os.environ.copy()
+            temp_path = str(self.temp_dir.absolute())
+            env['TMPDIR'] = temp_path
+            env['TMP'] = temp_path
+            env['TEMP'] = temp_path
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+            
+            if result.returncode == 0:
+                print(f"✅ Видео сжато: {output_path}")
+            else:
+                print(f"❌ Ошибка FFmpeg при сжатии: {result.stderr}")
+                raise Exception(f"FFmpeg compression error: {result.stderr}")
+                
         except Exception as e:
-            print(f"Ошибка ffmpeg при сжатии: {e}")
+            print(f"❌ Ошибка при сжатии: {e}")
+            # В случае ошибки просто копируем файл
             shutil.copy2(input_path, output_path)
+            print(f"📁 Файл скопирован без сжатия: {output_path}")

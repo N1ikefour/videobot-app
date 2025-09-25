@@ -6,7 +6,6 @@ from typing import List, Optional
 import os
 import uuid
 import shutil
-import tempfile
 from pathlib import Path
 import asyncio
 from video_processor import VideoProcessor

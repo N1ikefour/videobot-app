@@ -4,7 +4,6 @@
 """
 
 import ffmpeg
-import tempfile
 import os
 from pathlib import Path
 

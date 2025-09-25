@@ -4,17 +4,29 @@ from pathlib import Path
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from video_processor import VideoProcessor
-import tempfile
 import shutil
 from config import TELEGRAM_BOT_TOKEN
 
 # Токен бота
 BOT_TOKEN = TELEGRAM_BOT_TOKEN
 
+# Отладочная информация
+print(f"🔑 Токен бота загружен: {'✅' if BOT_TOKEN and BOT_TOKEN != 'YOUR_BOT_TOKEN_HERE' else '❌'}")
+if BOT_TOKEN and BOT_TOKEN != 'YOUR_BOT_TOKEN_HERE':
+    print(f"🔑 Токен: {BOT_TOKEN[:10]}...{BOT_TOKEN[-5:]}")
+else:
+    print("❌ Токен не найден! Проверьте .env файл")
+
 class VideoBot:
     def __init__(self):
-        self.processor = VideoProcessor()
+        self.processor = None  # Создаем только когда нужно
         self.processing_users = set()  # Пользователи, которые сейчас обрабатывают видео
+    
+    def _get_processor(self):
+        """Получает процессор видео, создавая его при необходимости"""
+        if self.processor is None:
+            self.processor = VideoProcessor()
+        return self.processor
         
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик команды /start"""
@@ -57,14 +69,20 @@ class VideoBot:
         """Обработчик видео файлов"""
         user_id = update.effective_user.id
         
+        print(f"📹 Получено видео от пользователя {user_id}")
+        
         # Проверяем, не обрабатывает ли пользователь уже видео
         if user_id in self.processing_users:
+            print(f"⏳ Пользователь {user_id} уже обрабатывает видео")
             await update.message.reply_text("⏳ Пожалуйста, дождитесь завершения текущей обработки!")
             return
         
         # Проверяем размер файла
         video = update.message.video
+        print(f"📹 Информация о видео: размер={video.file_size}, длительность={video.duration}")
+        
         if video.file_size > 50 * 1024 * 1024:  # 50MB
+            print(f"❌ Файл слишком большой: {video.file_size} байт")
             await update.message.reply_text("❌ Размер файла превышает 50MB!")
             return
         
@@ -108,6 +126,11 @@ class VideoBot:
             context.user_data['copies'] = 1
             context.user_data['add_frames'] = False
             context.user_data['compression'] = False
+            
+            print(f"💾 Сохранены данные пользователя {user_id}:")
+            print(f"  📁 Путь к видео: {input_path}")
+            print(f"  📁 Временная папка: {temp_dir}")
+            print(f"  ⚙️ Параметры по умолчанию: копии=1, рамки=False, сжатие=False")
             
         except Exception as e:
             await update.message.reply_text(f"❌ Ошибка при обработке видео: {str(e)}")
@@ -189,6 +212,8 @@ class VideoBot:
         """Обрабатывает видео с выбранными параметрами"""
         user_id = query.from_user.id
         
+        print(f"🎬 Начинаем обработку видео для пользователя {user_id}")
+        
         try:
             await query.edit_message_text("🔄 Обрабатываю видео...")
             
@@ -198,28 +223,44 @@ class VideoBot:
             add_frames = context.user_data['add_frames']
             compression = context.user_data['compression']
             
+            print(f"📁 Путь к видео: {video_path}")
+            print(f"📁 Временная папка: {temp_dir}")
+            print(f"⚙️ Параметры: копии={copies}, рамки={add_frames}, сжатие={compression}")
+            
             # Создаем папку для результатов
             result_dir = temp_dir / "results"
             result_dir.mkdir(exist_ok=True)
+            print(f"📁 Папка результатов: {result_dir}")
             
             # Обрабатываем видео
-            result_files = await self.processor.process_video(
+            print("🔄 Начинаем обработку видео...")
+            processor = self._get_processor()
+            result_files = await processor.process_video(
                 input_path=video_path,
                 output_dir=result_dir,
                 copies=copies,
                 compression=compression,
                 add_frames=add_frames
             )
+            print(f"✅ Обработка завершена. Получено {len(result_files)} файлов")
             
             # Отправляем обработанные видео
+            print(f"📤 Отправляем {len(result_files)} файлов пользователю {user_id}")
             for i, file_path in enumerate(result_files):
-                await query.message.reply_video(
-                    video=open(file_path, 'rb'),
-                    caption=f"📹 Обработанное видео #{i+1}\n"
-                           f"Копий: {copies}\n"
-                           f"Рамки: {'Да' if add_frames else 'Нет'}\n"
-                           f"Сжатие: {'Да' if compression else 'Нет'}"
-                )
+                print(f"📤 Отправляем файл {i+1}: {file_path}")
+                try:
+                    with open(file_path, 'rb') as video_file:
+                        await query.message.reply_video(
+                            video=video_file,
+                            caption=f"📹 Обработанное видео #{i+1}\n"
+                                   f"Копий: {copies}\n"
+                                   f"Рамки: {'Да' if add_frames else 'Нет'}\n"
+                                   f"Сжатие: {'Да' if compression else 'Нет'}"
+                        )
+                    print(f"✅ Файл {i+1} отправлен успешно")
+                except Exception as send_error:
+                    print(f"❌ Ошибка при отправке файла {i+1}: {send_error}")
+                    await query.message.reply_text(f"❌ Ошибка при отправке видео #{i+1}: {str(send_error)}")
             
             await query.edit_message_text("✅ Видео успешно обработано и отправлено!")
             
@@ -237,21 +278,32 @@ class VideoBot:
 
 def main():
     """Запуск бота"""
-    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+    print("🚀 Запускаем Telegram бота...")
+    
+    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE" or not BOT_TOKEN:
         print("❌ Установите TELEGRAM_BOT_TOKEN в переменных окружения!")
+        print("📝 Создайте файл .env с содержимым: TELEGRAM_BOT_TOKEN=ваш_токен_здесь")
         return
     
-    bot = VideoBot()
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Добавляем обработчики
-    application.add_handler(CommandHandler("start", bot.start))
-    application.add_handler(CommandHandler("help", bot.help))
-    application.add_handler(MessageHandler(filters.VIDEO, bot.handle_video))
-    application.add_handler(CallbackQueryHandler(bot.handle_callback))
-    
-    print("🤖 Telegram бот запущен!")
-    application.run_polling()
+    try:
+        bot = VideoBot()
+        application = Application.builder().token(BOT_TOKEN).build()
+        
+        # Добавляем обработчики
+        application.add_handler(CommandHandler("start", bot.start))
+        application.add_handler(CommandHandler("help", bot.help))
+        application.add_handler(MessageHandler(filters.VIDEO, bot.handle_video))
+        application.add_handler(CallbackQueryHandler(bot.handle_callback))
+        
+        print("🤖 Telegram бот запущен!")
+        print("📱 Отправьте /start боту для начала работы")
+        
+        # Запускаем бота
+        application.run_polling()
+        
+    except Exception as e:
+        print(f"❌ Ошибка при запуске бота: {e}")
+        print("🔍 Проверьте правильность токена и интернет-соединение")
 
 if __name__ == "__main__":
     main()
