@@ -55,14 +55,8 @@ def start_telegram_bot():
     except Exception as e:
         print(f"❌ Ошибка запуска бота: {e}")
 
-# Запускаем бота в фоновом потоке при старте приложения
-bot_thread = None
-if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_BOT_TOKEN") != "YOUR_BOT_TOKEN_HERE":
-    bot_thread = threading.Thread(target=start_telegram_bot, daemon=True)
-    bot_thread.start()
-    print("✅ Telegram бот запущен в фоновом режиме")
-else:
-    print("⚠️ TELEGRAM_BOT_TOKEN не найден, бот не запущен")
+# Бот запускается как отдельный сервис на Railway
+print("ℹ️ Telegram бот запускается как отдельный сервис")
 
 # Система привязки пользователей к сессиям
 USER_SESSIONS_FILE = Path("user_sessions.json")
