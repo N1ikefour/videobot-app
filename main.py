@@ -13,6 +13,7 @@ import httpx
 import json
 import threading
 
+
 app = FastAPI(title="VideoBot App", description="Приложение для обработки видео")
 
 # Создаем директории для загрузок и результатов
