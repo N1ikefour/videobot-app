@@ -20,19 +20,21 @@ except Exception as e:
 
 try:
     print("🌐 Запускаем веб-сервер...")
-    import subprocess
-    import threading
+    import uvicorn
     
-    port = os.getenv("PORT", "8000")
+    port = int(os.getenv("PORT", "8000"))
     print(f"🌐 Порт: {port}")
     
-    # Запускаем uvicorn
-    subprocess.run([
-        sys.executable, "-m", "uvicorn", 
-        "main:app", 
-        "--host", "0.0.0.0", 
-        "--port", port
-    ])
+    # Импортируем приложение
+    from main import app
+    
+    # Запускаем uvicorn напрямую
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port,
+        log_level="info"
+    )
     
 except Exception as e:
     print(f"❌ Ошибка: {e}")
