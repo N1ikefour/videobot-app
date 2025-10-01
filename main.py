@@ -46,7 +46,7 @@ cleanup_temp_files()
 def start_telegram_bot():
     """Запускает Telegram бота в отдельном потоке"""
     try:
-        from telegram_bot import main as bot_main
+        from telegram_bot_standalone import main as bot_main
         
         print("🤖 Запускаем Telegram бота в фоновом режиме...")
         
